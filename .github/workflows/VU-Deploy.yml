@@ -38,7 +38,7 @@ jobs:
           uses: actions/checkout@v3.3.0
           with:
             repository: 'dubloksoftware/capturescreen'
-            token: ${{ secrets.VU_PAT }}
+            token: ${{ secrets.PAT }}
             fetch-depth: 0
         
         - name: 🧮 Commit Count
