@@ -1,0 +1,175 @@
+﻿name: Publish [vu]
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "The reason for running the workflow"
+        required: true
+        default: "Manual run"
+  #push:
+  #  branches: [ master ]
+  #pull_request:
+  #  branches: [ master ]
+  
+env:
+  DEPLOY_PATH: C:\inetpub\vhosts\${{ secrets.VU_DOMAIN }}\
+jobs:
+    build:
+        runs-on: windows-2022
+        strategy:
+          matrix:
+            include:
+              # - site: API
+              #   path: api.${{ secrets.VU_DOMAIN }}\
+              #   csproj: VU.API/VU.API
+              #   publish_folder_name: VU.API
+              # - site: FS
+              #   path: fs.${{ secrets.VU_DOMAIN }}\
+              #   csproj: VU.FS/VU.FS
+              #   publish_folder_name: VU.FS
+              - site: WEB
+                path: httpdocs\
+                csproj: VU.Web/VU.Web
+                publish_folder_name: VU.Web
+        steps:
+        - name: Checkout
+          id: vcs
+          uses: actions/checkout@v3.3.0
+          with:
+            repository: 'dubloksoftware/capturescreen'
+            token: ${{ secrets.VU_PAT }}
+            fetch-depth: 0
+        
+        - name: 🧮 Commit Count
+          id: commitCount
+          working-directory: ${{ env.REPO_LOCAL }}
+          run: |
+            commitcount=$(git rev-list HEAD --count)
+            echo "COMMIT COUNT: $commitcount"
+            echo "COMMIT_COUNT=$commitcount" >> $GITHUB_OUTPUT
+          shell: bash
+
+        - name: 🌅 Semantic Version
+          id: semVer
+          run: |
+            commitCount=${{ steps.commitCount.outputs.COMMIT_COUNT }}
+            semver=$(printf %09d $commitCount | sed ':a;s/\B[0-9]\{3\}\>/.&/;ta')
+            echo "SEMANTIC VERSION: " $semver
+            echo "SEM_VER=$semver" >> $GITHUB_OUTPUT
+          shell: bash
+
+        - name: Publish [${{ matrix.csproj }}]
+          run: dotnet publish ${{ matrix.csproj }}.csproj --configuration Release --framework net6.0 --output ./publish/${{ matrix.publish_folder_name }} --runtime win-x64  --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=false
+
+        - name: 📤 Upload artifacts
+          uses: actions/upload-artifact@v3.1.2
+          with:
+            name: build_vu_${{ matrix.publish_folder_name }}_${{ steps.semVer.outputs.SEM_VER }}
+            path: publish/${{ matrix.publish_folder_name }}/
+            retention-days: 1
+            
+        outputs:
+          sem_ver: ${{ steps.semVer.outputs.SEM_VER }}
+
+    deploy:
+        needs: build
+        runs-on: ubuntu-22.04
+        strategy:
+          matrix:
+            include:
+              # - site: API
+              #   path: api.${{ secrets.VU_DOMAIN }}\
+              #   csproj: VU.API/VU.API
+              #   publish_folder_name: VU.API
+              # - site: FS
+              #   path: fs.${{ secrets.VU_DOMAIN }}\
+              #   csproj: VU.FS/VU.FS
+              #   publish_folder_name: VU.FS
+              - site: WEB
+                path: httpdocs\
+                ftp_path: /httpdocs
+                csproj: VU.Web/VU.Web
+                publish_folder_name: VU.Web
+
+        steps:
+
+        - name: Publish Informations
+          run: |
+            echo "Site: ${{ matrix.site }}"
+            echo "Commit Id: ${{ github.sha }}"
+            echo "Sem Ver: ${{ needs.build.outputs.sem_ver }}"
+
+        - name: 📥 Download artifacts
+          uses: actions/download-artifact@v3
+          with:
+            name: build_vu_${{ matrix.publish_folder_name }}_${{ needs.build.outputs.sem_ver }}
+            path: build_vu/${{ needs.build.outputs.sem_ver }}/${{ matrix.publish_folder_name }}/
+
+        - name: Install LFTP
+          run: |
+            sudo apt install lftp -y
+
+        - name: Upload
+          run: |
+            sudo lftp -c "set ssl:verify-certificate false; open -u ${{ secrets.VU_FTP_USER }},${{ secrets.VU_FTP_PASSWORD }} ${{ secrets.VU_FTP_SERVER }}; mirror -R build_vu/${{ needs.build.outputs.sem_ver }}/${{ matrix.publish_folder_name }}/ ${{ matrix.ftp_path }}_recent; bye"
+          shell: bash
+
+        - name: Take application offline
+          run: |
+            sudo touch /app_offline.htm
+            sudo lftp -c "set ssl:verify-certificate false; open -u ${{ secrets.VU_FTP_USER }},${{ secrets.VU_FTP_PASSWORD }} ${{ secrets.VU_FTP_SERVER }}; put -O ${{ matrix.ftp_path }} /app_offline.htm; bye"
+          shell: bash        
+
+        - name: Move to production
+          run: |
+            sudo lftp -c "set ssl:verify-certificate false; open -u ${{ secrets.VU_FTP_USER }},${{ secrets.VU_FTP_PASSWORD }} ${{ secrets.VU_FTP_SERVER }}; mv ${{ matrix.ftp_path }}_recent ${{ matrix.ftp_path }}_old "; bye"
+          shell: bash
+
+        - name: Take application online
+          run: |
+            sudo lftp -c "set ssl:verify-certificate false; open -u ${{ secrets.VU_FTP_USER }},${{ secrets.VU_FTP_PASSWORD }} ${{ secrets.VU_FTP_SERVER }}; rm ${{ matrix.ftp_path }}/app_offline.htm; bye"
+          shell: bash
+
+        # - name: Take application offline [WEB]
+        #   run: |
+        #     touch ${{ env.DEPLOY_PATH }}${{ matrix.path }}app_offline.htm
+        #   shell: bash
+
+        # - name: Purge directory [WEB]
+        #   run: |
+        #     find ${{ env.DEPLOY_PATH }}${{ env.path }} -type f -not -name "app_offline.htm" -print
+        #   shell: bash
+
+        # - name: Take application online [WEB]
+        #   run: |
+        #     rm ${{ env.DEPLOY_PATH }}${{ matrix.path }}app_offline.htm
+        #   shell: bash
+
+#mmv remote.dir1/* remote.dir2/
+
+
+    #purge:
+    #    needs: deploy
+    #    runs-on: [self-hosted, nova-win-1]
+    #    steps:
+    #    - name: 'Purge'
+    #      run: |
+    #        rm -rf ./*
+    #      shell: bash
+    
+
+#-exec rm -r {} +
+        #- name: Take application online [WEB]
+          #run: New-Item -Type File -Name app_offline.htm -Path ./ -Force
+
+        #- name: Take application offline
+        #  run: New-Item -Type File -Name app_offline.htm -Path ./ -Force
+          
+
+        #- name: Bring the app back online
+        #  run: Remove-Item E:\Foo\app_offline.htm
+          
+        
+            #touch ${{ env.DEPLOY_PATH }}${{ env.DEPLOY_PATH_VU_API }}app_offline.htm
+            #touch ${{ env.DEPLOY_PATH }}${env.DEPLOY_PATH_VU_FS }}app_offline.htm
