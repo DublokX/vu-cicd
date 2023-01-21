@@ -15,66 +15,66 @@ on:
 env:
   DEPLOY_PATH: C:\inetpub\vhosts\${{ secrets.VU_DOMAIN }}\
 jobs:
-    build:
-        runs-on: windows-2022
-        strategy:
-          matrix:
-            include:
-              # - site: API
-              #   path: api.${{ secrets.VU_DOMAIN }}\
-              #   csproj: VU.API/VU.API
-              #   publish_folder_name: VU.API
-              # - site: FS
-              #   path: fs.${{ secrets.VU_DOMAIN }}\
-              #   csproj: VU.FS/VU.FS
-              #   publish_folder_name: VU.FS
-              - site: WEB
-                path: httpdocs\
-                csproj: VU.Web/VU.Web
-                publish_folder_name: VU.Web
-        steps:
-        - name: Checkout
-          id: vcs
-          uses: actions/checkout@v3.3.0
-          with:
-            repository: 'dubloksoftware/capturescreen'
-            token: ${{ secrets.PAT }}
-            fetch-depth: 0
+    # build:
+    #     runs-on: windows-2022
+    #     strategy:
+    #       matrix:
+    #         include:
+    #           # - site: API
+    #           #   path: api.${{ secrets.VU_DOMAIN }}\
+    #           #   csproj: VU.API/VU.API
+    #           #   publish_folder_name: VU.API
+    #           # - site: FS
+    #           #   path: fs.${{ secrets.VU_DOMAIN }}\
+    #           #   csproj: VU.FS/VU.FS
+    #           #   publish_folder_name: VU.FS
+    #           - site: WEB
+    #             path: httpdocs\
+    #             csproj: VU.Web/VU.Web
+    #             publish_folder_name: VU.Web
+    #     steps:
+    #     - name: Checkout
+    #       id: vcs
+    #       uses: actions/checkout@v3.3.0
+    #       with:
+    #         repository: 'dubloksoftware/capturescreen'
+    #         token: ${{ secrets.PAT }}
+    #         fetch-depth: 0
         
-        - name: 🧮 Commit Count
-          id: commitCount
-          working-directory: ${{ env.REPO_LOCAL }}
-          run: |
-            commitcount=$(git rev-list HEAD --count)
-            echo "COMMIT COUNT: $commitcount"
-            echo "COMMIT_COUNT=$commitcount" >> $GITHUB_OUTPUT
-          shell: bash
+    #     - name: 🧮 Commit Count
+    #       id: commitCount
+    #       working-directory: ${{ env.REPO_LOCAL }}
+    #       run: |
+    #         commitcount=$(git rev-list HEAD --count)
+    #         echo "COMMIT COUNT: $commitcount"
+    #         echo "COMMIT_COUNT=$commitcount" >> $GITHUB_OUTPUT
+    #       shell: bash
 
-        - name: 🌅 Semantic Version
-          id: semVer
-          run: |
-            commitCount=${{ steps.commitCount.outputs.COMMIT_COUNT }}
-            semver=$(printf %09d $commitCount | sed ':a;s/\B[0-9]\{3\}\>/.&/;ta')
-            echo "SEMANTIC VERSION: " $semver
-            echo "SEM_VER=$semver" >> $GITHUB_OUTPUT
-          shell: bash
+    #     - name: 🌅 Semantic Version
+    #       id: semVer
+    #       run: |
+    #         commitCount=${{ steps.commitCount.outputs.COMMIT_COUNT }}
+    #         semver=$(printf %09d $commitCount | sed ':a;s/\B[0-9]\{3\}\>/.&/;ta')
+    #         echo "SEMANTIC VERSION: " $semver
+    #         echo "SEM_VER=$semver" >> $GITHUB_OUTPUT
+    #       shell: bash
 
-        - name: Publish [${{ matrix.csproj }}]
-          run: dotnet publish ${{ matrix.csproj }}.csproj --configuration Release --framework net6.0 --output ./publish/${{ matrix.publish_folder_name }} --runtime win-x64  --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=false
+    #     - name: Publish [${{ matrix.csproj }}]
+    #       run: dotnet publish ${{ matrix.csproj }}.csproj --configuration Release --framework net6.0 --output ./publish/${{ matrix.publish_folder_name }} --runtime win-x64  --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=false
 
-        - name: 📤 Upload artifacts
-          uses: actions/upload-artifact@v3.1.2
-          with:
-            name: build_vu_${{ matrix.publish_folder_name }}_${{ steps.semVer.outputs.SEM_VER }}
-            path: publish/${{ matrix.publish_folder_name }}/
-            retention-days: 1
+    #     - name: 📤 Upload artifacts
+    #       uses: actions/upload-artifact@v3.1.2
+    #       with:
+    #         name: build_vu_${{ matrix.publish_folder_name }}_${{ steps.semVer.outputs.SEM_VER }}
+    #         path: publish/${{ matrix.publish_folder_name }}/
+    #         retention-days: 1
             
-        outputs:
-          sem_ver: ${{ steps.semVer.outputs.SEM_VER }}
+    #     outputs:
+    #       sem_ver: ${{ steps.semVer.outputs.SEM_VER }}
 
     deploy:
-        needs: build
-        runs-on: [self-hosted, nova-win-1]
+        # needs: build
+        runs-on: nova-win-1
         strategy:
           matrix:
             include:
