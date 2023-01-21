@@ -98,29 +98,29 @@ jobs:
           run: |
             echo "Site: ${{ matrix.site }}"
             echo "Commit Id: ${{ github.sha }}"
-            echo "Sem Ver: ${{ needs.build.outputs.sem_ver }}"
+# echo "Sem Ver: ${{ needs.build.outputs.sem_ver }}"
           shell: bash
 
-        - name: 📥 Download artifacts
-          uses: actions/download-artifact@v3
-          with:
-            name: build_vu_${{ matrix.publish_folder_name }}_${{ needs.build.outputs.sem_ver }}
-            path: build_vu/${{ needs.build.outputs.sem_ver }}/${{ matrix.publish_folder_name }}/
+        # - name: 📥 Download artifacts
+        #   uses: actions/download-artifact@v3
+        #   with:
+        #     name: build_vu_${{ matrix.publish_folder_name }}_${{ needs.build.outputs.sem_ver }}
+        #     path: build_vu/${{ needs.build.outputs.sem_ver }}/${{ matrix.publish_folder_name }}/
 
-        - name: Take application offline
-          run: |
-            touch ${{ env.DEPLOY_PATH }}/${{ matrix.site_path }}/app_offline.htm
-          shell: bash
+        # - name: Take application offline
+        #   run: |
+        #     touch ${{ env.DEPLOY_PATH }}/${{ matrix.site_path }}/app_offline.htm
+        #   shell: bash
 
-        - name: Move to production
-          run: |
-            mv build_vu_${{ matrix.publish_folder_name }}_${{ needs.build.outputs.sem_ver }} ${{ env.DEPLOY_PATH }}/${{ matrix.site_path }}_x/
-          shell: bash
+        # - name: Move to production
+        #   run: |
+        #     mv build_vu_${{ matrix.publish_folder_name }}_${{ needs.build.outputs.sem_ver }} ${{ env.DEPLOY_PATH }}/${{ matrix.site_path }}_x/
+        #   shell: bash
 
-        - name: Take application online
-          run: |
-            rm ${{ env.DEPLOY_PATH }}/${{ matrix.site_path }}/app_offline.htm
-          shell: bash
+        # - name: Take application online
+        #   run: |
+        #     rm ${{ env.DEPLOY_PATH }}/${{ matrix.site_path }}/app_offline.htm
+        #   shell: bash
 
         # - name: Take application offline [WEB]
         #   run: |
